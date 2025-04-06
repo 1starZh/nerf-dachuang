@@ -90,4 +90,17 @@ class NeRFWithPriors(nn.Module):
         outputs = torch.cat([rgb, alpha], -1)
         return outputs
     
+def compute_geometry_priors(batch_rays):
+    """
+    从输入的光线信息计算几何先验。
     
+    Args:
+        batch_rays: array of shape [batch_size, ...]. 包含光线的原点、方向等信息。
+    
+    Returns:
+        geometry_priors: array of shape [batch_size, D]. 这里 D 是几何特征的维度（如法向量的维度）。
+    """
+    # 假设我们从 batch_rays 中获取法向量
+    # 这里用一个示例，假设你有法向量信息在 batch_rays 中
+    normals = batch_rays[..., 3:6]  # 假设 rays 的方向就是法向量，具体按需调整
+    return normals  # 返回法向量，维度 [batch_size, 3]

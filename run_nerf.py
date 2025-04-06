@@ -777,6 +777,9 @@ def train():
                 batch_rays = torch.stack([rays_o, rays_d], 0)
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
 
+        geometry_priors = compute_geometry_priors(batch_rays)  # 获取几何特征
+        encoded_pts = enhanced_encoding(batch_rays[..., :3], geometry_priors)  # 使用增强编码
+
         #####  Core optimization loop  #####
         rgb, disp, acc, pts, extras = render(H, W, K, chunk=args.chunk, rays=batch_rays,
                                                 verbose=i < 10, retraw=True, return_pts=True,
@@ -805,7 +808,7 @@ def train():
         weights = raw[..., -1]  # alpha
         weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-8)
         weighted_pts = torch.sum(pts * weights[..., None], dim=1)  # (B, 3)，每条 ray 的权重平均点
-        
+
         # 可选：导出点云
         if i % 1000 == 0:  # 每1000次迭代导出一次点云
             weighted_pts = weighted_pts.cpu().numpy()  # 将点云转换为 numpy 数组
