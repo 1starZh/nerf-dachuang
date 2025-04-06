@@ -18,6 +18,7 @@ from load_deepvoxels import load_dv_data
 from load_blender import load_blender_data
 from load_LINEMOD import load_LINEMOD_data
 
+from geometry_regularizers import plane_fit_loss, line_fit_loss
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 np.random.seed(0)
@@ -771,6 +772,29 @@ def train():
             img_loss0 = img2mse(extras['rgb0'], target_s)
             loss = loss + img_loss0
             psnr0 = mse2psnr(img_loss0)
+
+        raw = extras['raw']  # (B, N_samples, 4)，最后一维：RGB+σ
+        z_vals = extras['z_vals']  # (B, N_samples)
+        rays_o = batch_rays[..., 0]  # (B, 3)
+        rays_d = batch_rays[..., 1]  # (B, 3)
+
+        # 用 z_vals 重建 3D 采样点（世界坐标）
+        pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :, None]  # shape: (B, N_samples, 3)
+
+        # 根据权重提取重要的点（可选）
+        weights = raw[..., -1]  # alpha
+        weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-8)
+        weighted_pts = torch.sum(pts * weights[..., None], dim=1)  # (B, 3)，每条 ray 的权重平均点
+
+        # 可选：也可以直接取所有采样点，组成 block，做局部几何正则
+        plane_reg = plane_fit_loss(pts)
+        line_reg = line_fit_loss(pts)
+
+        # 正则权重
+        w_plane = 0.01
+        w_line = 0.01
+
+        loss += w_plane * plane_reg + w_line * line_reg
 
         loss.backward()
         optimizer.step()
